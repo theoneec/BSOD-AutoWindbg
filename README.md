@@ -32,7 +32,7 @@ A PowerShell script to automatically set up **WinDbg Preview CLI** and perform c
 You can run the script from GitHub in one line:
 
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/yourusername/BSOD-AutoWindbg/main/BSOD-AutoWindbg.ps1" -OutFile "$env:TEMP\BSOD-AutoWindbg.ps1"; & "$env:TEMP\BSOD-AutoWindbg.ps1" -Day 3
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/theoneec/BSOD-AutoWindbg/main/BSOD-AutoWindbg.ps1" -OutFile "$env:TEMP\BSOD-AutoWindbg.ps1"; & "$env:TEMP\BSOD-AutoWindbg.ps1" -Day 3
 ```
 
 Replace `-Day 3` with your desired parameters (`-Hour 6`, or omit for interactive mode).
