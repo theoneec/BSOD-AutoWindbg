@@ -1,0 +1,55 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse check (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\BSOD-AutoWindbg.ps1", [ref]$null, [ref]$errors)
+          if ($errors) { $errors | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+
+      - name: Parser tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\tests\Test-Parser.ps1
+
+      - name: Parser tests (PowerShell 7)
+        shell: pwsh
+        run: ./tests/Test-Parser.ps1
+
+      - name: PSScriptAnalyzer (errors only)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path .\BSOD-AutoWindbg.ps1 -Severity Error
+          $r | Format-Table -AutoSize
+          if ($r) { exit 1 }
+
+      - name: CLI smoke test (no dumps, JSON output)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\empty" | Out-Null
+          $out = powershell -NoProfile -ExecutionPolicy Bypass -File .\BSOD-AutoWindbg.ps1 -DumpPath "$env:RUNNER_TEMP\empty" -Json -OutputPath "$env:RUNNER_TEMP\out"
+          $code = $LASTEXITCODE
+          $out
+          if ($code -ne 0) { throw "expected exit 0, got $code" }
+          $j = $out | ConvertFrom-Json
+          if ($j.DumpsAnalysed -ne 0) { throw 'unexpected analysis' }
+
+      - name: Debugger acquisition from Microsoft (download + extract)
+        shell: powershell
+        run: |
+          . .\BSOD-AutoWindbg.ps1
+          $d = Resolve-Debugger -ToolsPath "$env:RUNNER_TEMP\tools" -Update
+          $d | Format-List
+          if ($d.Kind -ne 'Console') { Write-Warning 'kd.exe/cdb.exe not found in the WinDbg package; DbgX fallback in use' }
+          (Get-Item $d.Path).VersionInfo | Format-List FileName, FileVersion, CompanyName
+          Get-AuthenticodeSignature $d.Path | Format-List Status, SignerCertificate

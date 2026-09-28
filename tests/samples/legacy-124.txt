@@ -1,0 +1,22 @@
+*******************************************************************************
+*                                                                             *
+*                        Bugcheck Analysis                                    *
+*                                                                             *
+*******************************************************************************
+
+WHEA_UNCORRECTABLE_ERROR (124)
+A fatal hardware error has occurred.
+Arguments:
+Arg1: 0000000000000000, Machine Check Exception
+Arg2: ffffe00123456028, Address of the WHEA_ERROR_RECORD structure.
+Arg3: 00000000be000000, High order 32-bits of the MCi_STATUS value.
+Arg4: 0000000000800400, Low order 32-bits of the MCi_STATUS value.
+
+BUGCHECK_STR:  0x124_GenuineIntel
+
+PROCESS_NAME:  System
+
+*** WARNING: Unable to verify timestamp for hal.dll
+Probably caused by : GenuineIntel
+
+Followup: MachineOwner
