@@ -1,0 +1,88 @@
+
+Microsoft (R) Windows Debugger Version 10.0.27725.1000 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+
+Loading Dump File [C:\Windows\Minidump\092726-10484-01.dmp]
+Mini Kernel Dump File: Only registers and stack trace are available
+
+Symbol search path is: srv*C:\ProgramData\BSOD-AutoWindbg\symbols*https://msdl.microsoft.com/download/symbols
+Executable search path is: 
+Windows 10 Kernel Version 22621 MP (8 procs) Free x64
+Product: WinNt, suite: TerminalServer SingleUserTS
+Kernel base = 0xfffff807`4a600000 PsLoadedModuleList = 0xfffff807`4b2134f0
+Debug session time: Sun Sep 27 14:02:11.123 2026 (UTC + 10:00)
+System Uptime: 0 days 3:12:45.078
+BSODAW_ANALYZE_BEGIN
+*******************************************************************************
+*                                                                             *
+*                        Bugcheck Analysis                                    *
+*                                                                             *
+*******************************************************************************
+
+DRIVER_IRQL_NOT_LESS_OR_EQUAL (d1)
+An attempt was made to access a pageable (or completely invalid) address at an
+interrupt request level (IRQL) that is too high.  This is usually
+caused by drivers using improper addresses.
+Arguments:
+Arg1: 0000000000000010, memory referenced
+Arg2: 0000000000000002, IRQL
+Arg3: 0000000000000000, value 0 = read operation, 1 = write operation
+Arg4: fffff8076a2b1c3d, address which referenced memory
+
+Debugging Details:
+------------------
+
+KEY_VALUES_STRING: 1
+
+BUGCHECK_CODE:  d1
+
+BUGCHECK_P1: 10
+
+BUGCHECK_P2: 2
+
+BUGCHECK_P3: 0
+
+BUGCHECK_P4: fffff8076a2b1c3d
+
+PROCESS_NAME:  System
+
+STACK_TEXT:  
+ffffb001`1d2e6a88 fffff807`4aa2c2a9     : 00000000`0000000a 00000000`00000010 00000000`00000002 00000000`00000000 : nt!KeBugCheckEx
+ffffb001`1d2e6a90 fffff807`4aa27a34     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : nt!KiBugCheckDispatch+0x69
+ffffb001`1d2e6bd0 fffff807`6a2b1c3d     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : nt!KiPageFault+0x474
+ffffb001`1d2e6d60 fffff807`6a2a0e11     : 00000000`00000000 00000000`00000000 00000000`00000000 00000000`00000000 : e1d68x64+0x11c3d
+
+SYMBOL_NAME:  e1d68x64+11c3d
+
+MODULE_NAME: e1d68x64
+
+IMAGE_NAME:  e1d68x64.sys
+
+IMAGE_VERSION:  12.19.1.37
+
+STACK_COMMAND:  .cxr; .ecxr ; kb
+
+BUCKET_ID_FUNC_OFFSET:  11c3d
+
+FAILURE_BUCKET_ID:  AV_e1d68x64!unknown_function
+
+OS_VERSION:  10.0.22621.1
+
+BUILDLAB_STR:  ni_release
+
+OSPLATFORM_TYPE:  x64
+
+OSNAME:  Windows 10
+
+FAILURE_ID_HASH:  {2b3c4d5e-1111-2222-3333-444455556666}
+
+Followup:     MachineOwner
+---------
+
+BSODAW_VERTARGET
+Windows 10 Kernel Version 22621 MP (8 procs) Free x64
+Debug session time: Sun Sep 27 14:02:11.123 2026 (UTC + 10:00)
+System Uptime: 0 days 3:12:45.078
+BSODAW_END
+quit:

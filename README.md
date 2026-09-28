@@ -1,98 +1,161 @@
-# BSOD-AutoWindbg.ps1
+# BSOD-AutoWindbg
 
-A PowerShell script to automatically set up **WinDbg Preview CLI** and perform crash dump analysis on Windows systems.
+Automated Windows BSOD (bugcheck) dump analysis. It has two modes: a **CLI** for RMM tools and scheduled tasks, and a **GUI** for technicians.
 
----
-
-## 🛠️ Features
-
-* ❌ Checks for minidump files and verifies crash dump settings in the registry.
-* 🚀 Automatically downloads the latest **WinDbg Preview (msixbundle)** from Microsoft.
-* 📦 Downloads and uses 7-Zip (`7zr.exe`, `7za.exe`) to extract WinDbg binaries.
-* ⚙️ Extracts and runs `DbgX.Shell.exe` for CLI analysis.
-* ⏳ Supports filtering by age (days or hours) or analyzing all dump files.
-* 🧠 Uses `!analyze -v` and saves analysis logs to `C:\temp\debugged`.
-* 💬 Supports interactive prompts when run without parameters.
-* ⛨️ Automatically elevates to Administrator if needed.
+It finds the crash dumps, or analyses the dump you point it at. It gets the Microsoft debugger engine automatically, runs `!analyze -v` against Microsoft's public symbols, and gives you a readable diagnosis and machine-readable JSON/CSV.
 
 ---
 
-## 📅 Prerequisites
+## Features
 
-* Windows PowerShell 5.x or higher
-* Internet access to download tools
-* Administrator privileges (auto-elevated)
+- **Zero setup.** It finds `kd.exe`/`cdb.exe` in this order:
+  1. The Windows SDK/WDK
+  2. The installed WinDbg app
+  3. A cached copy
+  4. The latest WinDbg package downloaded from Microsoft, then unpacked (MSIX is a ZIP container, so 7-Zip isn't needed).
+- **Point it at any dump.** Use `-DumpPath` with files or folders, or drag `.dmp` files onto `BSOD-AutoWindbg.cmd` or onto the GUI window.
+- **System scan.** Reads `MinidumpDir` and `DumpFile` from `CrashControl`, so it picks up `Minidump\*.dmp` and `MEMORY.DMP`.
+- **Parsed results** for each dump:
+  - Bugcheck code, name and parameters
+  - Faulting image and module
+  - Failure bucket
+  - Process
+  - Crash time and uptime
+  - Top of the stack
+- **Driver lookup.** For local dumps it reports the faulting driver's vendor, version, date and signer, and flags third-party drivers.
+- **Plain-English recommendations.** There are hints for about 40 common bugchecks, for generic or hardware-type failures, and for symbol problems.
+- **Event Log context.** It counts the last 30 days of BugCheck (1001), Kernel-Power 41, unexpected shutdown (6008) and WHEA hardware-error events.
+- **RMM-safe.**
+  - It never prompts in non-interactive sessions.
+  - `-Json` gives output a script can parse.
+  - Exit codes are meaningful.
+  - Each dump has a timeout.
+  - Dumps already analysed are skipped.
+- **GUI.**
+  - Results grid
+  - Diagnosis, raw debugger output and activity tabs
+  - Buttons to copy a summary for a ticket and to open the reports folder
+- **Remediation.** `-EnableCrashDumps` turns on dump collection when it's disabled.
+- **Elevates only when needed.** Admin is needed for system dumps and registry changes. Dumps you point it at are analysed without elevation.
 
 ---
 
-## 🚀 Usage
+## Usage
 
-### 1. Run Directly (No Download Required)
+### Technician (GUI)
 
-You can run the script from GitHub in one line:
+- Double-click **`BSOD-AutoWindbg.cmd`**. It opens the GUI; click **This PC's dumps**.
+- To analyse specific files, drag `.dmp` files or folders onto `BSOD-AutoWindbg.cmd` or onto the open window.
 
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/theoneec/BSOD-AutoWindbg/main/BSOD-AutoWindbg.ps1" -OutFile "$env:TEMP\BSOD-AutoWindbg.ps1"; & "$env:TEMP\BSOD-AutoWindbg.ps1" -Day 3
+.\BSOD-AutoWindbg.ps1                  # interactive desktop -> GUI
+.\BSOD-AutoWindbg.ps1 -Gui D:\cases\PC42\
 ```
 
-Replace `-Day 3` with your desired parameters (`-Hour 6`, or omit for interactive mode).
-
-### 2. Scripted Mode (via local file)
+### CLI
 
 ```powershell
-.\BSOD-AutoWindbg.ps1 -Day 3      # Analyze dumps created in the last 3 days
-.\BSOD-AutoWindbg.ps1 -Hour 6     # Analyze dumps from the last 6 hours
+.\BSOD-AutoWindbg.ps1 -NoGui                      # all new system dumps
+.\BSOD-AutoWindbg.ps1 -Days 7                     # last 7 days (-Day still works)
+.\BSOD-AutoWindbg.ps1 -Hours 6                    # last 6 hours (-Hour still works)
+.\BSOD-AutoWindbg.ps1 -Latest 1                   # newest dump only
+.\BSOD-AutoWindbg.ps1 -NoGui C:\dumps\a.dmp C:\dumps\b.dmp  # paths only + interactive desktop = GUI
+.\BSOD-AutoWindbg.ps1 -DumpPath \\server\share\crashes -OutputPath D:\reports -Force
 ```
 
-### 3. Interactive Mode
-
-Just run the script without arguments:
+### RMM (runs as SYSTEM, non-interactive)
 
 ```powershell
-.\BSOD-AutoWindbg.ps1
+$p = "$env:ProgramData\BSOD-AutoWindbg\BSOD-AutoWindbg.ps1"
+New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/theoneec/BSOD-AutoWindbg/main/BSOD-AutoWindbg.ps1" -OutFile $p
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Days 30 -NoGui -Json -EnableCrashDumps
+exit $LASTEXITCODE
 ```
 
-You will be prompted to choose between analyzing by:
+- Always pass `-NoGui` from RMM. Some agents run scripts as the logged-on user, and the script would otherwise open a window.
+- Use `-Json` when the RMM parses stdout. Leave it off to get a human-readable summary for ticket notes.
+- The debugger is cached in `%ProgramData%\BSOD-AutoWindbg\tools` and symbols in `%ProgramData%\BSOD-AutoWindbg\symbols`, so later runs are fast.
 
-* Days
-* Hours
-* All dump files
-
----
-
-## 📂 Output Location
-
-All log files are saved to:
+Example console summary:
 
 ```
-C:\temp\debugged\
+BSOD summary for PC42: 3 analysed, 0 failed. Reports: C:\temp\debugged
+  2x  0x000000D1 DRIVER_IRQL_NOT_LESS_OR_EQUAL / e1d68x64.sys
+  1x  0x00000124 WHEA_UNCORRECTABLE_ERROR / GenuineIntel
+  -> DRIVER_IRQL_NOT_LESS_OR_EQUAL - driver bug (commonly network, storage, AV). Update/roll back the named driver.
+  -> Faulting driver e1d68x64.sys is third-party (Intel Corporation, v12.19.1.37, 2023-04-11). Update or remove it first.
+  Last 30 days: 3 bugcheck events, 4 unexpected shutdowns, 1 WHEA hardware errors
 ```
 
-Each `.dmp` file is analyzed and output as a `.txt` file using the same base name.
+---
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `-DumpPath` | Dump files and/or folders (positional). Default: the system dump locations |
+| `-Days` / `-Hours` | Only dumps written in the last N days or hours (aliases `-Day` / `-Hour`) |
+| `-Latest` | Only the N newest dumps |
+| `-OutputPath` | Report folder. Default `C:\temp\debugged` |
+| `-ToolsPath` | Debugger cache. Default `%ProgramData%\BSOD-AutoWindbg\tools` |
+| `-SymbolPath` | Symbol path. Default: Microsoft symbol server, with a local cache |
+| `-DebuggerPath` | Use a specific `kd.exe` or `cdb.exe`, or a folder that contains one |
+| `-TimeoutMinutes` | Timeout for each dump. Default 15 |
+| `-Force` | Re-analyse dumps that already have a report |
+| `-UpdateDebugger` | Ignore installed and cached debuggers and download the latest from Microsoft |
+| `-SkipSystemMemoryDump` | Don't include `MEMORY.DMP` in the system scan |
+| `-EnableCrashDumps` | Turn on crash dump collection if it's disabled |
+| `-Json` | Write only the JSON summary to stdout |
+| `-Quiet` | Suppress progress output |
+| `-Gui` / `-NoGui` | Force the GUI or the CLI |
+
+## Output
+
+In `-OutputPath`:
+
+- `<dump>_<timestamp>.log`: raw debugger output
+- `<dump>_<timestamp>.json`: parsed result and recommendations
+- `summary.json` / `summary.csv`: the latest run
+- `BSOD-AutoWindbg.run.log`: activity log
+
+## Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| 0  | Completed. No dumps found, or no dumps match the filter. Crash dumps are enabled |
+| 1  | No dumps found, and crash dump collection is **disabled** |
+| 3  | Invalid parameters |
+| 4  | Admin rights required in a non-interactive session (or elevation declined) |
+| 5  | The debugger could not be acquired |
+| 10 | Dumps analysed. Crash evidence is present |
+| 11 | Dumps analysed, but some failed |
+| 12 | Every dump failed to analyse |
+
+> **Changed from v1:** exit code 2 ("no dumps but enabled") is now 0. Codes 10 and above mean crashes were found.
 
 ---
 
-## ❌ Exit Codes
+## Requirements
 
-| Code | Meaning                                           |
-| ---- | ------------------------------------------------- |
-| 1    | No dump files found and crash dumps disabled      |
-| 2    | No dump files found but crash dumps enabled       |
-| 3    | Both `-Day` and `-Hour` parameters used (invalid) |
-| 4    | Script not run as administrator                   |
-| 5    | MSIX extraction failed                            |
-| 6    | WinDbg CLI not found after extraction             |
+- Windows 10/11 or Server 2016+, with Windows PowerShell 5.1 or PowerShell 7
+- Internet access to `aka.ms`, `*.microsoft.com` and `msdl.microsoft.com`, for the first debugger download and for symbols. On offline machines, use `-DebuggerPath` and `-SymbolPath` with local copies.
 
----
+## Tests
 
-## 🧰 Components
+```powershell
+.\tests\Test-Parser.ps1
+```
 
-* [WinDbg Preview](https://aka.ms/windbg/download) – From Microsoft’s AppInstaller
-* [7-Zip Tools](https://www.7-zip.org/) – For archive extraction (`7zr.exe`, `7za.exe`)
+CI (`.github/workflows/test.yml`) runs on `windows-latest` and does the following:
 
----
+- Parse checks under PowerShell 5.1 and 7
+- Parser tests
+- PSScriptAnalyzer
+- A CLI smoke test
+- A real debugger download from Microsoft
 
-## 🙏 Acknowledgements
+## Components
 
-* Microsoft for WinDbg and AppInstaller feed
-* Igor Pavlov for 7-Zip utility
+- [WinDbg / Debugging Tools for Windows](https://aka.ms/windbg/download): Microsoft's debugger engine (`dbgeng`), downloaded at runtime and never redistributed.
+- Microsoft public symbol server: `https://msdl.microsoft.com/download/symbols`
